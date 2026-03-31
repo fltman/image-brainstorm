@@ -235,6 +235,7 @@ button {
 
 .card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
 .card.dragging { cursor: grabbing; box-shadow: 0 12px 48px rgba(0,0,0,0.6); z-index: 800; }
+.card.minimized { width: auto !important; height: auto !important; resize: none; }
 
 .card-header {
   padding: 4px 6px;

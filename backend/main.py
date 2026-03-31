@@ -9,9 +9,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from openai import OpenAI
+from openai import AsyncOpenAI
 from PIL import Image
 from pydantic import BaseModel
 
@@ -31,11 +30,11 @@ IMAGES_DIR.mkdir(exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 
-def get_client() -> OpenAI:
+def get_client() -> AsyncOpenAI:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(500, "OPENROUTER_API_KEY not set")
-    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+    return AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
 
 
 def extract_image_from_response(response) -> bytes | None:
@@ -48,12 +47,10 @@ def extract_image_from_response(response) -> bytes | None:
     if isinstance(msg.content, list):
         for part in msg.content:
             if isinstance(part, dict):
-                # inline_data format
                 if part.get("type") == "image_url":
                     url = part["image_url"]["url"]
                     if url.startswith("data:image"):
                         return base64.b64decode(url.split(",", 1)[1])
-                # some models return inline_data directly
                 if "inline_data" in part:
                     return base64.b64decode(part["inline_data"]["data"])
             # openai SDK objects
@@ -77,6 +74,20 @@ def extract_image_from_response(response) -> bytes | None:
     return None
 
 
+def save_image(img_bytes: bytes) -> dict:
+    filename = f"{uuid.uuid4().hex}.png"
+    (IMAGES_DIR / filename).write_bytes(img_bytes)
+    return {"image": f"/images/{filename}", "filename": filename}
+
+
+def no_image_error(response):
+    text = ""
+    msg = response.choices[0].message if response.choices else None
+    if msg and msg.content:
+        text = msg.content if isinstance(msg.content, str) else str(msg.content)
+    raise HTTPException(422, f"No image in response. Model said: {text[:500]}")
+
+
 # ── Generate from text prompt ───────────────────────────────────────
 
 class GenerateRequest(BaseModel):
@@ -88,7 +99,7 @@ class GenerateRequest(BaseModel):
 async def generate(req: GenerateRequest):
     client = get_client()
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=req.model,
             messages=[{"role": "user", "content": req.prompt}],
         )
@@ -97,23 +108,16 @@ async def generate(req: GenerateRequest):
 
     img_bytes = extract_image_from_response(response)
     if not img_bytes:
-        # Return text response if no image
-        text = ""
-        msg = response.choices[0].message if response.choices else None
-        if msg and msg.content:
-            text = msg.content if isinstance(msg.content, str) else str(msg.content)
-        raise HTTPException(422, f"No image in response. Model said: {text[:500]}")
+        no_image_error(response)
 
-    filename = f"{uuid.uuid4().hex}.png"
-    (IMAGES_DIR / filename).write_bytes(img_bytes)
-    return {"image": f"/images/{filename}", "filename": filename}
+    return save_image(img_bytes)
 
 
 # ── Generate from image + prompt (image-to-image) ──────────────────
 
 class RefineRequest(BaseModel):
     prompt: str
-    source_image: str  # filename in generated_images/
+    source_image: str
     model: str = "google/gemini-3.1-flash-image-preview"
 
 
@@ -124,17 +128,16 @@ async def refine(req: RefineRequest):
         raise HTTPException(404, "Source image not found")
 
     b64 = base64.b64encode(source_path.read_bytes()).decode()
-    mime = "image/png"
 
     client = get_client()
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=req.model,
             messages=[{
                 "role": "user",
                 "content": [
                     {"type": "text", "text": req.prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
                 ],
             }],
         )
@@ -143,21 +146,15 @@ async def refine(req: RefineRequest):
 
     img_bytes = extract_image_from_response(response)
     if not img_bytes:
-        text = ""
-        msg = response.choices[0].message if response.choices else None
-        if msg and msg.content:
-            text = msg.content if isinstance(msg.content, str) else str(msg.content)
-        raise HTTPException(422, f"No image in response. Model said: {text[:500]}")
+        no_image_error(response)
 
-    filename = f"{uuid.uuid4().hex}.png"
-    (IMAGES_DIR / filename).write_bytes(img_bytes)
-    return {"image": f"/images/{filename}", "filename": filename}
+    return save_image(img_bytes)
 
 
 # ── Crop a region from an image ─────────────────────────────────────
 
 class CropRequest(BaseModel):
-    source_image: str  # filename
+    source_image: str
     x: int
     y: int
     width: int
@@ -184,7 +181,6 @@ async def crop(req: CropRequest):
 async def upload(file: UploadFile = File(...)):
     data = await file.read()
     filename = f"{uuid.uuid4().hex}.png"
-    # Convert to PNG
     img = Image.open(io.BytesIO(data))
     img.save(IMAGES_DIR / filename, "PNG")
     return {"image": f"/images/{filename}", "filename": filename}
@@ -192,4 +188,4 @@ async def upload(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8800)

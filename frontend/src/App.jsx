@@ -356,12 +356,27 @@ function App() {
 }
 
 function ImageCard({ card, onFocus, onMove, onRemove, onCrop, onUseAsRef, onReusePrompt }) {
+  const cardRef = useRef(null)
   const imgRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [selection, setSelection] = useState(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [minimized, setMinimized] = useState(false)
+  const savedSize = useRef(null)
   const selStart = useRef(null)
+
+  const toggleMinimize = () => {
+    const el = cardRef.current
+    if (!minimized) {
+      savedSize.current = { w: el.style.width, h: el.style.height }
+      el.style.width = 'auto'
+      el.style.height = 'auto'
+    } else if (savedSize.current) {
+      el.style.width = savedSize.current.w
+      el.style.height = savedSize.current.h
+    }
+    setMinimized(m => !m)
+  }
 
   const onHeaderMouseDown = useCallback((e) => {
     if (e.target.tagName === 'BUTTON') return
@@ -423,12 +438,13 @@ function ImageCard({ card, onFocus, onMove, onRemove, onCrop, onUseAsRef, onReus
 
   return (
     <div
-      className={`card ${dragging ? 'dragging' : ''}`}
+      ref={cardRef}
+      className={`card ${dragging ? 'dragging' : ''} ${minimized ? 'minimized' : ''}`}
       style={{ left: card.x, top: card.y, zIndex: card.z || 0 }}
       onMouseDown={onFocus}
     >
       <div className="card-header" onMouseDown={onHeaderMouseDown}>
-        <button className="btn-icon" title={minimized ? 'Expand' : 'Minimize'} onClick={() => setMinimized(m => !m)}>
+        <button className="btn-icon" title={minimized ? 'Expand' : 'Minimize'} onClick={toggleMinimize}>
           {minimized ? '+' : '\u2013'}
         </button>
         {!minimized && (
