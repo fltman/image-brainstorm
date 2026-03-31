@@ -176,22 +176,22 @@ function App() {
   ]
 
   const VARIATIONS = [
-    { id: 'random', label: 'Random variation', text: 'each exploring a completely different style, angle, mood, or interpretation' },
+    { id: 'random', label: 'Random', text: 'each as a completely different variation' },
     { id: 'none', label: 'No variation' },
-    { id: 'styles', label: 'Styles', text: 'each in a different style: photorealistic, oil painting, watercolor, digital illustration' },
-    { id: 'angles', label: 'Camera angles', text: 'each from a different camera angle: front view, side profile, bird\'s eye view, dramatic low angle' },
-    { id: 'moods', label: 'Moods', text: 'each with a different mood: bright and cheerful, dark and moody, warm sunset tones, cool blue hour' },
-    { id: 'color', label: 'Color palettes', text: 'each with a different color palette: monochrome, complementary, analogous, triadic' },
-    { id: 'time', label: 'Time of day', text: 'each at a different time of day: golden hour sunrise, harsh midday, blue hour dusk, moonlit night' },
-    { id: 'detail', label: 'Detail levels', text: 'each at a different detail level: minimal/abstract, sketchy, detailed, hyperdetailed' },
+    { id: 'styles', label: 'Styles', text: 'each in a different artistic style' },
+    { id: 'angles', label: 'Camera angles', text: 'each from a different camera angle' },
+    { id: 'moods', label: 'Moods', text: 'each with a different mood and atmosphere' },
+    { id: 'color', label: 'Color palettes', text: 'each with a different color palette' },
+    { id: 'time', label: 'Time of day', text: 'each at a different time of day' },
+    { id: 'detail', label: 'Detail levels', text: 'each at a different level of detail' },
+    { id: 'composition', label: 'Compositions', text: 'each with a different composition and framing' },
   ]
 
   const generate = () => {
     if (!prompt.trim()) return
     if (gridSize === 'none') return fireGenerate()
-    const grid = GRID_SIZES.find(g => g.id === gridSize)
     const vari = VARIATIONS.find(v => v.id === variation)
-    let suffix = `. Show as a ${grid.id} grid`
+    let suffix = `. Show as a ${gridSize} grid`
     if (vari && vari.text) suffix += `, ${vari.text}`
     suffix += '.'
     fireGenerate(prompt.trim() + suffix)
