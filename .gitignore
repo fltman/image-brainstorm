@@ -1,0 +1,10 @@
+node_modules/
+dist/
+backend/generated_images/
+backend/__pycache__/
+backend/venv/
+.env
+*.pyc
+.DS_Store
+IMG_0413.jpeg
+generate_image.py
