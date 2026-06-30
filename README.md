@@ -1,5 +1,7 @@
 # Image Brainstorm
 
+[![Support me on Patreon](https://img.shields.io/badge/Patreon-Support%20my%20work-FF424D?style=flat&logo=patreon&logoColor=white)](https://www.patreon.com/AndersBjarby)
+
 A visual brainstorming tool for AI image generation. Generate grids of image variations using Google Gemini via OpenRouter, then select, crop, and refine parts you like in an iterative creative loop.
 
 ## Features
